@@ -1,0 +1,61 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+  
+
+
+    match /ENTREGASPEDIDOS/{documents} {
+      allow read: if true;
+      allow write: if request.auth.uid != null;
+    }
+    
+    match /CATEGORIAS/{documents} {
+      allow read: if true;
+      allow write: if request.auth.uid == "Cj5scvdGVwU8fxfUbSOdunbWOhl1";
+    }
+
+  	match /PAGOS/{documents} {
+      allow read: if  true;
+      allow write: if true;
+    }
+    
+        
+    match /PEDIDOSAMEDIDA/{documents} {
+      allow read: if true;
+      allow write: if request.auth.uid != null;
+    }
+    
+     match /PLANOS/{documents} {
+      allow read: if true;
+      allow write: if request.auth.uid != null;
+    }
+    
+     match /PLANOSDESCARGAS/{documents} {
+      allow read: if true;
+      allow write: if request.auth != null;
+    
+    }
+    
+      match /USUARIOS/{documents} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null;
+    }
+    
+    match /PRECIOSDESPIECES/{documents} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+		match /DESPIECES/{documents} {
+      allow read: if true;
+      allow write: if request.auth.uid == "Cj5scvdGVwU8fxfUbSOdunbWOhl1" || 
+                  request.auth.uid == "CzihR6LxlmbPDkk6BbijGGA1eWz2";
+    }
+    
+    
+    
+    
+    
+  }
+}
