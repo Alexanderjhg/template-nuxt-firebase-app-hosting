@@ -46,10 +46,22 @@ export interface CreateChargeParams {
   metadata?: Record<string, string>;
 }
 
+/** Datos crudos de la tarjeta (se tokenizan en el servidor, nunca se almacenan) */
+export interface CardData {
+  number: string;
+  exp_month: string;
+  exp_year: string;
+  cvc: string;
+}
+
 /** Parámetros para crear una suscripción recurrente */
 export interface CreateSubscriptionParams {
   planId: string;
   customer: PaymentCustomer;
+  /** Token pre-generado de la tarjeta (opcional si se envía cardData) */
+  token?: string;
+  /** Datos crudos de la tarjeta — se tokenizan en el servidor vía SDK */
+  cardData?: CardData;
   trialDays?: number;
   returnUrl: string;
   cancelUrl: string;
@@ -107,6 +119,14 @@ export abstract class PaymentGateway {
    */
   abstract getTransactionStatus(transactionId: string): Promise<{
     status: "pending" | "approved" | "rejected" | "failed";
+    raw?: Record<string, unknown>;
+  }>;
+
+  /**
+   * Cancela una suscripción activa (requerido para dar de baja al usuario).
+   */
+  abstract cancelSubscription(subscriptionId: string): Promise<{
+    success: boolean;
     raw?: Record<string, unknown>;
   }>;
 }

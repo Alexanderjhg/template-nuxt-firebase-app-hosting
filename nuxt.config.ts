@@ -39,6 +39,12 @@ export default defineNuxtConfig({
 
   // @ts-expect-error: routeRules exists at runtime but causes ts errors in Nuxt 4 configs sometimes
   routeRules: {
+    // Headers globales de seguridad para permitir popups de Firebase Auth
+    "/**": {
+      headers: {
+        "Cross-Origin-Opener-Policy": "same-origin-allow-popups",
+      },
+    },
     // Las páginas de autenticación se renderizan en el cliente
     "/login": { ssr: false },
     // Todas las rutas del dashboard requieren cliente (estado Auth)
@@ -59,13 +65,14 @@ export default defineNuxtConfig({
     geminiApiKey: process.env.GEMINI_API_KEY,
 
     // ePayco (nunca exponer al cliente)
-    epaycoPublicKey: process.env.EPAYCO_PUBLIC_KEY,
+    // ePayco (nunca exponer claves privadas al cliente)
     epaycoPrivateKey: process.env.EPAYCO_PRIVATE_KEY,
     epaycoSecretKey: process.env.EPAYCO_SECRET_KEY,
     epaycoIsTest: process.env.EPAYCO_IS_TEST ?? "true",
 
     // ── Cliente (públicas: NUXT_PUBLIC_*) ────────────────────────────────────
     public: {
+      epaycoPublicKey: process.env.EPAYCO_PUBLIC_KEY,
       // Firebase Client SDK — estas claves son públicas por diseño de Firebase
       firebaseApiKey: process.env.NUXT_PUBLIC_FIREBASE_API_KEY,
       firebaseAuthDomain: process.env.NUXT_PUBLIC_FIREBASE_AUTH_DOMAIN,

@@ -199,7 +199,7 @@ export interface CreateSubscriptionParams {
   planId:    string;
   customer:  PaymentCustomer;
   token?:    string;
-  cardData?: CardData;   // alternativa al token pre-generado
+  cardData?: CardData;
   trialDays?: number;
   returnUrl: string;
   cancelUrl: string;
@@ -242,7 +242,23 @@ export default defineEventHandler(async (event) => {
 
 ---
 
-## 4. app/composables/usePayment.ts — createNativeSubscription
+## 4. server/api/protected/payments/cancel-subscription.post.ts
+
+```typescript
+export default defineEventHandler(async (event) => {
+  const body = await readBody<{ subscriptionId?: string }>(event);
+  if (!body.subscriptionId?.trim())
+    throw createError({ statusCode: 400, message: "subscriptionId es requerido" });
+
+  const gateway = await getPaymentProvider();
+  const result  = await gateway.cancelSubscription(body.subscriptionId);
+  return { success: result.success, message: result.success ? "Suscripción cancelada" : "No se pudo cancelar" };
+});
+```
+
+---
+
+## 5. app/composables/usePayment.ts — createNativeSubscription
 
 ```typescript
 async function createNativeSubscription(params: {
@@ -285,7 +301,7 @@ async function createNativeSubscription(params: {
 
 ---
 
-## 5. Frontend — Formulario de Suscripción (Vue)
+## 6. Frontend — Formulario de Suscripción (Vue)
 
 ```vue
 <script setup lang="ts">
@@ -325,10 +341,10 @@ const handleSubscribe = async () => {
 
 ---
 
-## 6. Endpoint temporal para listar planes (encontrar id_plan)
+## 7. Endpoint temporal para listar planes (encontrar id_plan)
 
 ```typescript
-// server/api/list-plans.get.ts  ← eliminar en producción
+// server/api/list-plans.get.ts  ← ELIMINAR en producción
 import EpaycoModule from "epayco-sdk-node";
 export default defineEventHandler(async () => {
   const config = useRuntimeConfig();
@@ -348,7 +364,7 @@ Abrir en browser: `http://localhost:3000/api/list-plans`
 
 ---
 
-## 7. Response Structures Reales
+## 8. Response Structures Reales
 
 ### token.create exitoso
 ```json
@@ -375,34 +391,32 @@ Abrir en browser: `http://localhost:3000/api/list-plans`
   "message": "Suscripción creada",
   "id": "9b31e54de548ebfe30ee392",
   "status_subscription": "inactive",
-  "customer": { "_id": "9b31c7b6...", "name": "Alexander", ... },
+  "customer": { "_id": "9b31c7b6...", "name": "Alexander" },
   "object": "subscription"
 }
 ```
-> `status_subscription: "inactive"` es normal. Se activa cuando ePayco procesa el primer cobro.
+> `status_subscription: "inactive"` es normal al crear. Se activa cuando ePayco procesa el primer cobro.
 
 ### subscriptions.create con error de plan
 ```json
 {
   "status": false,
   "message": "Error validando datos",
-  "data": {
-    "errors": { "id_plan": ["The id plan doesn't exist."] }
-  },
+  "data": { "errors": { "id_plan": ["The id plan doesn't exist."] } },
   "statusCode": 400
 }
 ```
 
----
-
-## 8. Tabla de Errores Comunes
-
-| Error | Causa | Solución |
-|-------|-------|----------|
-| `TypeError: auth['bearer_token']` | `config.epaycoPublicKey` es undefined | Usar `config.public.epaycoPublicKey` |
-| `window.ePayco.API is not a constructor` | SDK del browser no tiene ese método | Mover toda la lógica al servidor |
-| `window.ePayco.setPrivateKey is not a function` | Ese método no existe en el browser SDK | Usar epayco-sdk-node en el servidor |
-| `"Error validando datos"` en token | Año en 2 dígitos (`25`) o sin `hasCvv: true` | Año YYYY, agregar `hasCvv: true` |
-| `"Error validando datos"` en customer | `last_name: ""` o `phone: ""` (vacíos) | No enviar campos opcionales vacíos |
-| `"The id plan doesn't exist."` | Se usó el `_id` MongoDB en lugar del `id_plan` | Usar el campo `id_plan` (texto) |
-| `"Error validando datos"` en subscription | `url_confirmation` apunta a localhost | Omitir `url_confirmation` en desarrollo |
+### plans.list — para encontrar el id_plan correcto
+```json
+{
+  "status": true, "data": [{
+    "_id": "9b20a855fd42df8fc07e2be",
+    "id_plan": "plan_pro_01",
+    "name": "plan_pro_01",
+    "amount": 15, "currency": "USD",
+    "interval": "month", "interval_count": 1,
+    "status": "active"
+  }]
+}
+```

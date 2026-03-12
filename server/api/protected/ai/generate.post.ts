@@ -9,7 +9,7 @@ import { defineEventHandler, readBody, createError } from "h3";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
 // ── Constantes ────────────────────────────────────────────────────────────────
-const DEFAULT_MODEL = "gemini-2.0-flash";
+const DEFAULT_MODEL = "gemini-1.5-flash";
 const MAX_PROMPT_LENGTH = 4000;
 
 export default defineEventHandler(async (event) => {
@@ -35,21 +35,33 @@ export default defineEventHandler(async (event) => {
 
   // ── Inicializar cliente de Gemini ─────────────────────────────────────────
   const config = useRuntimeConfig();
+  const apiKey = (config.geminiApiKey as string)?.trim();
+  // const apiKey = "AIzaSyAsZbDk6F3Sl4X8Wx9XPmW8YtJqeMj0954";
 
-  if (!config.geminiApiKey) {
+  if (!apiKey) {
+    console.error(
+      "[ai/generate] Error: GEMINI_API_KEY no encontrada en runtimeConfig.",
+    );
     throw createError({
       statusCode: 503,
-      message: "El servicio de IA no está configurado correctamente.",
+      message:
+        "El servicio de IA no está configurado correctamente (Falta API Key).",
     });
   }
 
-  const genAI = new GoogleGenerativeAI(config.geminiApiKey as string);
+  // Debug (Enmascarado)
+  console.log(
+    `[ai/generate] Usando API Key: ${apiKey.substring(0, 7)}... (Longitud: ${apiKey.length})`,
+    // `${apiKey}`,
+  );
+
+  const genAI = new GoogleGenerativeAI(apiKey);
   const modelName = body.model ?? DEFAULT_MODEL;
   const model = genAI.getGenerativeModel({ model: modelName });
 
-  // ── Log de auditoría (sin datos sensibles) ────────────────────────────────
+  // ── Log de auditoría ──────────────────────────────────────────────────────
   console.info(
-    `[ai/generate] uid=${user.uid} model=${modelName} promptLength=${body.prompt.length}`
+    `[ai/generate] uid=${user.uid} model=${modelName} promptLength=${body.prompt.length}`,
   );
 
   // ── Generar contenido ─────────────────────────────────────────────────────
@@ -73,10 +85,16 @@ export default defineEventHandler(async (event) => {
 
     // Errores de cuota o autenticación de la API de Google
     if (error.message?.includes("API_KEY_INVALID")) {
-      throw createError({ statusCode: 503, message: "API Key de Gemini inválida." });
+      throw createError({
+        statusCode: 503,
+        message: "API Key de Gemini inválida.",
+      });
     }
     if (error.message?.includes("RESOURCE_EXHAUSTED")) {
-      throw createError({ statusCode: 429, message: "Cuota de Gemini agotada. Intenta más tarde." });
+      throw createError({
+        statusCode: 429,
+        message: "Cuota de Gemini agotada. Intenta más tarde.",
+      });
     }
 
     throw createError({

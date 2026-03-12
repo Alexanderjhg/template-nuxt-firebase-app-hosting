@@ -4,16 +4,16 @@
   Si el usuario ya está logueado, redirige al dashboard.
 -->
 <template>
-  <main class="login-page">
+  <main class="relative min-h-screen flex items-center justify-center overflow-hidden bg-[#0a0a0f]">
     <!-- Fondo con gradiente animado -->
-    <div class="bg-gradient" aria-hidden="true">
-      <div class="blob blob-1" />
-      <div class="blob blob-2" />
-      <div class="blob blob-3" />
+    <div class="absolute inset-0 overflow-hidden" aria-hidden="true">
+      <div class="blob blob-1 absolute rounded-full opacity-20 blur-3xl w-96 h-96 -top-20 -left-20" />
+      <div class="blob blob-2 absolute rounded-full opacity-20 blur-3xl w-80 h-80 top-1/2 -right-10" />
+      <div class="blob blob-3 absolute rounded-full opacity-20 blur-3xl w-64 h-64 -bottom-10 left-1/3" />
     </div>
 
     <!-- Contenido central -->
-    <div class="login-container">
+    <div class="relative z-10 w-full px-4">
       <AuthLoginForm />
     </div>
   </main>
@@ -41,35 +41,21 @@ watchEffect(() => {
 </script>
 
 <style scoped>
-.login-page {
-  @apply relative min-h-screen flex items-center justify-center overflow-hidden;
-  background: #0a0a0f;
-}
-
-/* ── Fondo con blobs ──────────────────────────────────────────────────────── */
-.bg-gradient {
-  @apply absolute inset-0 overflow-hidden;
-}
-
 .blob {
-  @apply absolute rounded-full opacity-20 blur-3xl;
   animation: float 8s ease-in-out infinite;
 }
 
 .blob-1 {
-  @apply w-96 h-96 -top-20 -left-20;
   background: radial-gradient(circle, #6d28d9, transparent);
   animation-delay: 0s;
 }
 
 .blob-2 {
-  @apply w-80 h-80 top-1/2 -right-10;
   background: radial-gradient(circle, #4f46e5, transparent);
   animation-delay: -3s;
 }
 
 .blob-3 {
-  @apply w-64 h-64 -bottom-10 left-1/3;
   background: radial-gradient(circle, #7c3aed, transparent);
   animation-delay: -6s;
 }
@@ -78,10 +64,5 @@ watchEffect(() => {
   0%, 100% { transform: translate(0, 0) scale(1); }
   33%       { transform: translate(20px, -20px) scale(1.05); }
   66%       { transform: translate(-10px, 15px) scale(0.95); }
-}
-
-/* ── Contenedor del formulario ───────────────────────────────────────────── */
-.login-container {
-  @apply relative z-10 w-full px-4;
 }
 </style>

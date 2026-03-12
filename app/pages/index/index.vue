@@ -8,7 +8,7 @@
 
     <div class="relative z-10 w-full max-w-5xl">
       <div class="text-center mb-16 space-y-4">
-        <h1 class="text-6xl md:text-8xl font-black tracking-tighter text-gradient leading-tight">
+        <h1 class="text-6xl md:text-8xl font-black tracking-tighter leading-tight bg-clip-text text-transparent bg-gradient-to-r from-blue-400 via-indigo-400 to-purple-500">
           SaaS Template <br /> <span class="text-white">Nuxt 4 + Firebase</span>
         </h1>
         <p class="text-xl text-slate-400 max-w-2xl mx-auto font-light">
@@ -76,9 +76,5 @@ useHead({
 </script>
 
 <style scoped>
-.text-gradient {
-  background: linear-gradient(to right, #60a5fa, #818cf8, #a78bfa);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-}
+/* No styles needed here as we use inline Tailwind classes */
 </style>
