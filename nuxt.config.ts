@@ -20,12 +20,12 @@ export default defineNuxtConfig({
   // ── Componentes ────────────────────────────────────────────────────────────
   components: [
     { path: "~/components", pathPrefix: true },
-    { path: "~/components/UI", prefix: "UI" }
+    { path: "~/components/UI", prefix: "UI" },
   ],
 
   // ── Dev Server ─────────────────────────────────────────────────────────────
   devServer: {
-    port: 3000
+    port: 3000,
   },
 
   // ── CSS Global ─────────────────────────────────────────────────────────────
@@ -56,33 +56,34 @@ export default defineNuxtConfig({
   // El resto son secretos que viven ÚNICAMENTE en el servidor (Cloud Secret Manager).
   runtimeConfig: {
     // ── Servidor (privadas) ──────────────────────────────────────────────────
-    // Firebase Admin SDK
-    firebaseAdminProjectId: process.env.FIREBASE_ADMIN_PROJECT_ID,
-    firebaseAdminClientEmail: process.env.FIREBASE_ADMIN_CLIENT_EMAIL,
-    firebaseAdminPrivateKey: process.env.FIREBASE_ADMIN_PRIVATE_KEY,
+    // Nuxt mapea automáticamente NUXT_<SCREAMING_SNAKE_CASE> → camelCase
+    // Firebase Admin SDK  →  NUXT_FIREBASE_ADMIN_*
+    firebaseAdminProjectId: "",
+    firebaseAdminClientEmail: "",
+    firebaseAdminPrivateKey: "",
 
-    // Google Gemini
-    geminiApiKey: process.env.GEMINI_API_KEY,
+    // Google Gemini  →  NUXT_GEMINI_API_KEY
+    geminiApiKey: "",
 
-    // ePayco (nunca exponer al cliente)
     // ePayco (nunca exponer claves privadas al cliente)
-    epaycoPrivateKey: process.env.EPAYCO_PRIVATE_KEY,
-    epaycoSecretKey: process.env.EPAYCO_SECRET_KEY,
-    epaycoIsTest: process.env.EPAYCO_IS_TEST ?? "true",
+    // →  NUXT_EPAYCO_PRIVATE_KEY / NUXT_EPAYCO_SECRET_KEY / NUXT_EPAYCO_IS_TEST
+    epaycoPrivateKey: "",
+    epaycoSecretKey: "",
+    epaycoIsTest: "true",
 
     // ── Cliente (públicas: NUXT_PUBLIC_*) ────────────────────────────────────
     public: {
-      epaycoPublicKey: process.env.EPAYCO_PUBLIC_KEY,
-      // Firebase Client SDK — estas claves son públicas por diseño de Firebase
-      firebaseApiKey: process.env.NUXT_PUBLIC_FIREBASE_API_KEY,
-      firebaseAuthDomain: process.env.NUXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
-      firebaseProjectId: process.env.NUXT_PUBLIC_FIREBASE_PROJECT_ID,
-      firebaseStorageBucket: process.env.NUXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
-      firebaseMessagingSenderId: process.env.NUXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
-      firebaseAppId: process.env.NUXT_PUBLIC_FIREBASE_APP_ID,
-
-      // Entorno actual (útil para mostrar banners en dev)
-      appEnv: process.env.NUXT_PUBLIC_APP_ENV ?? "development",
+      // →  NUXT_PUBLIC_EPAYCO_PUBLIC_KEY
+      epaycoPublicKey: "",
+      // Firebase Client SDK  →  NUXT_PUBLIC_FIREBASE_*
+      firebaseApiKey: "",
+      firebaseAuthDomain: "",
+      firebaseProjectId: "",
+      firebaseStorageBucket: "",
+      firebaseMessagingSenderId: "",
+      firebaseAppId: "",
+      // →  NUXT_PUBLIC_APP_ENV
+      appEnv: "development",
     },
   },
 
