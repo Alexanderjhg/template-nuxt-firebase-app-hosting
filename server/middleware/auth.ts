@@ -13,6 +13,9 @@ export default defineEventHandler(async (event) => {
   // Solo proteger rutas que empiecen con /api/protected
   if (!event.path.startsWith("/api/protected")) return;
 
+  // Excluir callback de OAuth (Google redirige sin Bearer token)
+  if (event.path.startsWith("/api/protected/calendar/callback")) return;
+
   // ── Extraer token del header ───────────────────────────────────────────────
   const authorizationHeader = getHeader(event, "authorization");
 

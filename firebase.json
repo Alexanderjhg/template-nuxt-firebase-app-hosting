@@ -1,8 +1,19 @@
 {
   "functions": [
     {
-      "source": ".output/server",
-      "codebase": "default"
+      "source": "functions",
+      "codebase": "clowpen",
+      "ignore": [
+        "node_modules",
+        ".git",
+        "firebase-debug.log",
+        "firebase-debug.*.log",
+        "*.local",
+        "src"
+      ],
+      "predeploy": [
+        "npm --prefix \"$RESOURCE_DIR\" run build"
+      ]
     },
     {
       "source": "mueblemiov3",
@@ -46,6 +57,7 @@
     "singleProjectMode": true
   },
   "firestore": {
+    "database": "clow1",
     "rules": "firestore.rules",
     "indexes": "firestore.indexes.json"
   },

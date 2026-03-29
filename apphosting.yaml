@@ -16,37 +16,37 @@ runConfig:
 env:
   # ── Firebase Client SDK (Públicas — disponibles en BUILD y RUNTIME) ─────────
   - variable: NUXT_PUBLIC_FIREBASE_API_KEY
-    value: "YOUR_FIREBASE_API_KEY"          # Reemplaza en producción
+    value: "AIzaSyCH6fRf6dozuoHQBZ9yRce-8BgbluaWjNk"
     availability:
       - BUILD
       - RUNTIME
 
   - variable: NUXT_PUBLIC_FIREBASE_AUTH_DOMAIN
-    value: "YOUR_PROJECT_ID.firebaseapp.com"
+    value: "clowpen2.firebaseapp.com"
     availability:
       - BUILD
       - RUNTIME
 
   - variable: NUXT_PUBLIC_FIREBASE_PROJECT_ID
-    value: "YOUR_PROJECT_ID"
+    value: "clowpen2"
     availability:
       - BUILD
       - RUNTIME
 
   - variable: NUXT_PUBLIC_FIREBASE_STORAGE_BUCKET
-    value: "YOUR_PROJECT_ID.firebasestorage.app"
+    value: "clowpen2.firebasestorage.app"
     availability:
       - BUILD
       - RUNTIME
 
   - variable: NUXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID
-    value: "YOUR_SENDER_ID"
+    value: "898933247478"
     availability:
       - BUILD
       - RUNTIME
 
   - variable: NUXT_PUBLIC_FIREBASE_APP_ID
-    value: "YOUR_APP_ID"
+    value: "1:898933247478:web:d910f621ac01c21b048bd7"
     availability:
       - BUILD
       - RUNTIME
@@ -60,7 +60,7 @@ env:
   # ── Firebase Admin SDK (Secretos — solo RUNTIME) ────────────────────────────
   # Crea el secreto: gcloud secrets create FIREBASE_ADMIN_PROJECT_ID --data-file=-
   - variable: FIREBASE_ADMIN_PROJECT_ID
-    value: "YOUR_PROJECT_ID"               # No es secreto, pero lo mantenemos aquí
+    value: "clowpen2"               # No es secreto, pero lo mantenemos aquí
     availability:
       - RUNTIME
 
@@ -98,5 +98,38 @@ env:
 
   - variable: EPAYCO_IS_TEST
     value: "false"                         # Cambiar a false en producción
+    availability:
+      - RUNTIME
+
+  # ── Google OAuth2 (Calendar API) ────────────────────────────────────────
+  # Crear: gcloud secrets create GOOGLE_CLIENT_ID --data-file=-
+  # Crear: gcloud secrets create GOOGLE_CLIENT_SECRET --data-file=-
+  - variable: NUXT_GOOGLE_CLIENT_ID
+    secret: GOOGLE_CLIENT_ID
+    availability:
+      - RUNTIME
+
+  - variable: NUXT_GOOGLE_CLIENT_SECRET
+    secret: GOOGLE_CLIENT_SECRET
+    availability:
+      - RUNTIME
+
+  # ── URL pública de la app ─────────────────────────────────────────────
+  - variable: NUXT_PUBLIC_APP_URL
+    value: "https://tu-dominio.web.app"
+    availability:
+      - BUILD
+      - RUNTIME
+
+  # ── Agentes: cifrado de tokens y firma de webhooks ──────────────────────
+  # Crear: gcloud secrets create AGENT_TOKEN_ENCRYPTION_KEY --data-file=-
+  # El valor debe ser exactamente 32 caracteres (256 bits)
+  - variable: NUXT_AGENT_TOKEN_ENCRYPTION_KEY
+    secret: AGENT_TOKEN_ENCRYPTION_KEY
+    availability:
+      - RUNTIME
+
+  - variable: NUXT_WEBHOOK_SIGNING_KEY
+    secret: WEBHOOK_SIGNING_KEY
     availability:
       - RUNTIME

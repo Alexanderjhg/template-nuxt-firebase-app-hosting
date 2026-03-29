@@ -2,60 +2,314 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-  
 
+    // ── Helpers ───────────────────────────────────────────────────────────────
 
-    match /ENTREGASPEDIDOS/{documents} {
-      allow read: if true;
-      allow write: if request.auth.uid != null;
+    function isAuth() {
+      return request.auth != null;
     }
-    
-    match /CATEGORIAS/{documents} {
+
+    function isWorkspaceMember(workspaceId) {
+      return isAuth() &&
+        exists(/databases/$(database)/documents/workspaces/$(workspaceId)/members/$(request.auth.uid));
+    }
+
+    function getWorkspaceMember(workspaceId) {
+      return get(/databases/$(database)/documents/workspaces/$(workspaceId)/members/$(request.auth.uid)).data;
+    }
+
+    function isWorkspaceAdmin(workspaceId) {
+      return isWorkspaceMember(workspaceId) &&
+        getWorkspaceMember(workspaceId).role in ['owner', 'admin'];
+    }
+
+    function isChannelVisible(workspaceId, channelId) {
+      let ch = get(/databases/$(database)/documents/workspaces/$(workspaceId)/channels/$(channelId)).data;
+      return isWorkspaceMember(workspaceId) &&
+        (!ch.isPrivate || request.auth.uid in ch.memberIds);
+    }
+
+    // ── workspaces/{workspaceId} ──────────────────────────────────────────────
+
+    match /workspaces/{workspaceId} {
+      allow read: if isWorkspaceMember(workspaceId);
+      allow create: if isAuth();
+      allow update: if isWorkspaceAdmin(workspaceId);
+      allow delete: if isAuth() &&
+        get(/databases/$(database)/documents/workspaces/$(workspaceId)).data.ownerId == request.auth.uid;
+
+      // ── members ────────────────────────────────────────────────────────────
+      match /members/{userId} {
+        allow read: if isWorkspaceMember(workspaceId);
+        // Los miembros pueden actualizar su propia presencia, displayName y perfil público
+        allow update: if isAuth() && request.auth.uid == userId &&
+          request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(['presence', 'displayName', 'photoURL', 'workspaceStatus', 'workspaceRole', 'contactPhone', 'contactEmail']);
+        // Admins pueden gestionar membresías (el servidor usa Admin SDK para el resto)
+        allow write: if isWorkspaceAdmin(workspaceId);
+      }
+
+      // ── channels ───────────────────────────────────────────────────────────
+      match /channels/{channelId} {
+        allow read: if isWorkspaceMember(workspaceId);
+        allow create: if isWorkspaceMember(workspaceId);
+        allow update: if isWorkspaceAdmin(workspaceId);
+        allow delete: if isWorkspaceAdmin(workspaceId);
+
+        // ── messages ──────────────────────────────────────────────────────────
+        match /messages/{messageId} {
+          allow read: if isChannelVisible(workspaceId, channelId);
+          // Los mensajes se crean vía endpoint de servidor (Admin SDK)
+          // El cliente puede leer; escritura solo en caso de reacciones
+          allow create: if false; // solo Admin SDK
+          allow update: if isAuth() && request.auth.uid == resource.data.senderId &&
+            request.resource.data.diff(resource.data).affectedKeys().hasOnly(['content', 'editedAt', 'reactions']);
+          allow delete: if false; // soft delete solo vía servidor
+
+          // ── replies (hilos) ──────────────────────────────────────────────
+          match /replies/{replyId} {
+            allow read: if isChannelVisible(workspaceId, channelId);
+            allow create: if false; // solo Admin SDK
+            allow update: if false;
+            allow delete: if false;
+          }
+        }
+      }
+
+      // ── dms ────────────────────────────────────────────────────────────────
+      match /dms/{dmId} {
+        allow read: if isAuth() &&
+          request.auth.uid in resource.data.participantIds;
+        allow create: if false; // solo Admin SDK
+        allow update: if false;
+        allow delete: if false;
+
+        match /messages/{messageId} {
+          allow read: if isAuth() &&
+            request.auth.uid in get(/databases/$(database)/documents/workspaces/$(workspaceId)/dms/$(dmId)).data.participantIds;
+          allow create: if false; // solo Admin SDK
+          allow update: if isAuth() && request.auth.uid == resource.data.senderId &&
+            request.resource.data.diff(resource.data).affectedKeys().hasOnly(['reactions']);
+          allow delete: if false;
+        }
+      }
+
+      // ── ai_suggestions (privadas por recipientId) ─────────────────────────
+      match /ai_suggestions/{suggestionId} {
+        allow read: if isAuth() && resource.data.recipientId == request.auth.uid;
+        allow create: if false; // solo Admin SDK
+        allow update: if isAuth() && resource.data.recipientId == request.auth.uid &&
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status']);
+        allow delete: if false;
+      }
+
+      // ── automations ─────────────────────────────────────────────────────────
+      match /automations/{automationId} {
+        allow read: if isWorkspaceMember(workspaceId);
+        allow create: if false; // solo Admin SDK
+        allow update: if isAuth() && resource.data.createdBy == request.auth.uid &&
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status']);
+        allow delete: if isAuth() && resource.data.createdBy == request.auth.uid;
+
+        match /executions/{execId} {
+          allow read: if isWorkspaceMember(workspaceId);
+          allow write: if false; // solo Admin SDK
+        }
+      }
+
+      // ── calendar_events ──────────────────────────────────────────────────
+      match /calendar_events/{eventId} {
+        allow read: if isAuth() && resource.data.createdBy == request.auth.uid;
+        allow create: if false; // solo Admin SDK
+        allow update: if isAuth() && resource.data.createdBy == request.auth.uid &&
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status']);
+        allow delete: if isAuth() && resource.data.createdBy == request.auth.uid;
+      }
+
+      // ── agents ─────────────────────────────────────────────────────────────
+      match /agents/{agentId} {
+        allow read: if isWorkspaceAdmin(workspaceId);
+        allow create: if false; // solo Admin SDK
+        allow update: if false;
+        allow delete: if false;
+      }
+
+      // ── agent_audit ────────────────────────────────────────────────────────
+      match /agent_audit/{auditId} {
+        allow read: if isWorkspaceAdmin(workspaceId);
+        allow write: if false; // solo Admin SDK
+      }
+
+      // ── integrations ───────────────────────────────────────────────────────
+      match /integrations/{integrationId} {
+        allow read: if isWorkspaceMember(workspaceId);
+        allow write: if isWorkspaceAdmin(workspaceId);
+      }
+
+      // ── pending_tasks ──────────────────────────────────────────────────────
+      match /pending_tasks/{taskId} {
+        allow read: if isAuth() && resource.data.userId == request.auth.uid;
+        allow update: if isAuth() && resource.data.userId == request.auth.uid &&
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'dueAt']);
+        allow create: if false; // solo Admin SDK
+        allow delete: if isAuth() && resource.data.userId == request.auth.uid;
+      }
+    }
+
+    // ── userWorkspaces/{userId} (índice invertido) ────────────────────────────
+    match /userWorkspaces/{userId} {
+      allow read: if isAuth() && request.auth.uid == userId;
+      allow write: if false; // solo Admin SDK
+    }
+
+    // ── aiRateLimits/{userId} ─────────────────────────────────────────────────
+    match /aiRateLimits/{userId} {
+      allow read: if false;
+      allow write: if false; // solo Admin SDK
+    }
+
+    // ── agentRateLimits/{agentId} ───────────────────────────────────────────
+    match /agentRateLimits/{agentId} {
+      allow read: if false;
+      allow write: if false; // solo Admin SDK
+    }
+
+    // ── users/{uid} — perfiles globales públicos ──────────────────────────────
+    match /users/{uid} {
+      // Cualquier usuario autenticado puede leer perfiles (para búsqueda y contactos)
+      allow read: if isAuth();
+      // Solo el propio usuario puede actualizar su perfil (el servidor usa Admin SDK)
+      allow write: if false; // solo Admin SDK (profile/update endpoint)
+
+      // ── contacts/{contactUid} ───────────────────────────────────────────────
+      match /contacts/{contactUid} {
+        allow read: if isAuth() && request.auth.uid == uid;
+        allow write: if false; // solo Admin SDK
+      }
+
+      // ── globalAgents/{agentId} — agentes personales del usuario ────────────
+      match /globalAgents/{agentId} {
+        allow read: if isAuth() && request.auth.uid == uid;
+        allow write: if false; // solo Admin SDK
+      }
+
+      // ── ai_suggestions — sugerencias de IA para DMs personales ────────────
+      match /ai_suggestions/{suggestionId} {
+        allow read: if isAuth() && request.auth.uid == uid;
+        allow create: if false; // solo Admin SDK
+        allow update: if isAuth() && request.auth.uid == uid &&
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status']);
+        allow delete: if false;
+      }
+
+      // ── automations — automatizaciones personales del usuario ─────────────
+      match /automations/{automationId} {
+        allow read: if isAuth() && request.auth.uid == uid;
+        allow create: if false; // solo Admin SDK
+        allow update: if isAuth() && request.auth.uid == uid &&
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status']);
+        allow delete: if isAuth() && request.auth.uid == uid;
+      }
+
+      // ── calendar_events — eventos de calendario personales ─────────────
+      match /calendar_events/{eventId} {
+        allow read: if isAuth() && request.auth.uid == uid;
+        allow create: if false; // solo Admin SDK
+        allow update: if isAuth() && request.auth.uid == uid &&
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status']);
+        allow delete: if isAuth() && request.auth.uid == uid;
+      }
+
+      // ── notifications — notificaciones de ejecuciones ───────────────────
+      match /notifications/{notifId} {
+        allow read: if isAuth() && request.auth.uid == uid;
+        allow update: if isAuth() && request.auth.uid == uid &&
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read']);
+        allow create: if false; // solo Admin SDK
+        allow delete: if false;
+      }
+
+      // ── pending_tasks — tareas pendientes globales del usuario ────────────
+      match /pending_tasks/{taskId} {
+        allow read: if isAuth() && request.auth.uid == uid;
+        allow update: if isAuth() && request.auth.uid == uid &&
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status']);
+        allow create: if false; // solo Admin SDK
+        allow delete: if isAuth() && request.auth.uid == uid;
+      }
+    }
+
+    // ── globalDMs/{dmId} — DMs personales globales ───────────────────────────
+    match /globalDMs/{dmId} {
+      allow read: if isAuth() && request.auth.uid in resource.data.participantIds;
+      allow create: if false; // solo Admin SDK
+      allow update: if false;
+      allow delete: if false;
+
+      match /messages/{messageId} {
+        allow read: if isAuth() &&
+          request.auth.uid in get(/databases/$(database)/documents/globalDMs/$(dmId)).data.participantIds;
+        allow create: if false; // solo Admin SDK
+        allow update: if isAuth() && request.auth.uid == resource.data.senderId &&
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['reactions']);
+        allow delete: if false;
+      }
+    }
+
+    // ── personalGroups/{groupId} — grupos informales ──────────────────────────
+    match /personalGroups/{groupId} {
+      allow read: if isAuth() && request.auth.uid in resource.data.memberIds;
+      allow create: if false; // solo Admin SDK
+      allow update: if false;
+      allow delete: if false;
+
+      match /messages/{messageId} {
+        allow read: if isAuth() &&
+          request.auth.uid in get(/databases/$(database)/documents/personalGroups/$(groupId)).data.memberIds;
+        allow create: if false; // solo Admin SDK
+        allow update: if isAuth() && request.auth.uid == resource.data.senderId &&
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['reactions']);
+        allow delete: if false;
+      }
+    }
+
+    // ── Colecciones legadas (mantener compatibilidad) ─────────────────────────
+    match /ENTREGASPEDIDOS/{doc} {
+      allow read: if true;
+      allow write: if isAuth();
+    }
+    match /CATEGORIAS/{doc} {
       allow read: if true;
       allow write: if request.auth.uid == "Cj5scvdGVwU8fxfUbSOdunbWOhl1";
     }
-
-  	match /PAGOS/{documents} {
-      allow read: if  true;
+    match /PAGOS/{doc} {
+      allow read: if true;
       allow write: if true;
     }
-    
-        
-    match /PEDIDOSAMEDIDA/{documents} {
+    match /PEDIDOSAMEDIDA/{doc} {
       allow read: if true;
-      allow write: if request.auth.uid != null;
+      allow write: if isAuth();
     }
-    
-     match /PLANOS/{documents} {
+    match /PLANOS/{doc} {
       allow read: if true;
-      allow write: if request.auth.uid != null;
+      allow write: if isAuth();
     }
-    
-     match /PLANOSDESCARGAS/{documents} {
+    match /PLANOSDESCARGAS/{doc} {
       allow read: if true;
-      allow write: if request.auth != null;
-    
+      allow write: if isAuth();
     }
-    
-      match /USUARIOS/{documents} {
-      allow read: if request.auth != null;
-      allow write: if request.auth != null;
+    match /USUARIOS/{doc} {
+      allow read: if isAuth();
+      allow write: if isAuth();
     }
-    
-    match /PRECIOSDESPIECES/{documents} {
+    match /PRECIOSDESPIECES/{doc} {
       allow read: if true;
       allow write: if false;
     }
-
-		match /DESPIECES/{documents} {
+    match /DESPIECES/{doc} {
       allow read: if true;
-      allow write: if request.auth.uid == "Cj5scvdGVwU8fxfUbSOdunbWOhl1" || 
-                  request.auth.uid == "CzihR6LxlmbPDkk6BbijGGA1eWz2";
+      allow write: if request.auth.uid == "Cj5scvdGVwU8fxfUbSOdunbWOhl1" ||
+                   request.auth.uid == "CzihR6LxlmbPDkk6BbijGGA1eWz2";
     }
-    
-    
-    
-    
-    
   }
 }

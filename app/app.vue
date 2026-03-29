@@ -5,22 +5,35 @@
   - El listener se destruye automáticamente cuando el componente se desmonta.
 -->
 <template>
-  <div>
+  <NuxtLayout>
     <NuxtPage />
-  </div>
+  </NuxtLayout>
 </template>
 
 <script setup lang="ts">
-const { initAuthListener } = useAuth();
+const { initAuthListener, user } = useAuth();
+const { listenGlobalDMs, stopListening } = useGlobalDMs();
 
-// Solo en el cliente: escucha cambios de sesión de Firebase
-// y mantiene el estado global `user` actualizado en toda la app.
+let dmUnsub: (() => void) | null = null;
+
 onMounted(() => {
-  const unsubscribe = initAuthListener();
+  const authUnsub = initAuthListener();
 
-  // Limpiar el listener cuando el componente raíz se desmonte
+  // Listener global de DMs: corre en toda la app para que badges y
+  // notificaciones funcionen independientemente de la página actual.
+  const stopWatch = watch(user, (u) => {
+    dmUnsub?.();
+    if (u) {
+      dmUnsub = listenGlobalDMs();
+    } else {
+      stopListening();
+    }
+  }, { immediate: true });
+
   onUnmounted(() => {
-    unsubscribe();
+    authUnsub();
+    stopWatch();
+    dmUnsub?.();
   });
 });
 </script>

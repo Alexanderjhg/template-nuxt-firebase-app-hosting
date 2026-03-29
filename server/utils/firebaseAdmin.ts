@@ -62,5 +62,5 @@ export function getAdminAuth(): Auth {
  * const doc = await db.collection('users').doc(uid).get()
  */
 export function getAdminFirestore(): Firestore {
-  return getFirestore(getAdminApp());
+  return getFirestore(getAdminApp(), "clow1");
 }

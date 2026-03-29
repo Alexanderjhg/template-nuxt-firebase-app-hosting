@@ -6,6 +6,9 @@
 import {
   GoogleAuthProvider,
   signInWithPopup,
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  sendPasswordResetEmail,
   signOut,
   onAuthStateChanged,
   type Auth,
@@ -20,6 +23,30 @@ export interface AuthUser {
   photoURL: string | null;
   /** Token JWT de Firebase — se usa para autenticar llamadas al backend */
   idToken: string | null;
+}
+
+/** Traduce códigos de error de Firebase Auth a mensajes legibles */
+function mapAuthError(code?: string): string {
+  switch (code) {
+    case "auth/invalid-email":
+      return "El correo electrónico no es válido.";
+    case "auth/user-disabled":
+      return "Esta cuenta ha sido deshabilitada.";
+    case "auth/user-not-found":
+      return "No existe una cuenta con este correo.";
+    case "auth/wrong-password":
+      return "La contraseña es incorrecta.";
+    case "auth/invalid-credential":
+      return "Correo o contraseña incorrectos.";
+    case "auth/email-already-in-use":
+      return "Ya existe una cuenta con este correo.";
+    case "auth/weak-password":
+      return "La contraseña debe tener al menos 6 caracteres.";
+    case "auth/too-many-requests":
+      return "Demasiados intentos. Intenta de nuevo más tarde.";
+    default:
+      return "Error al autenticar. Intenta de nuevo.";
+  }
 }
 
 export const useAuth = () => {
@@ -85,6 +112,88 @@ export const useAuth = () => {
       if (error.code === "auth/popup-closed-by-user") return;
       authError.value = error.message ?? "Error al iniciar sesión";
       console.error("[useAuth] loginWithGoogle error:", error);
+    } finally {
+      isLoading.value = false;
+    }
+  }
+
+  /**
+   * Inicia sesión con email y contraseña.
+   */
+  async function loginWithEmail(email: string, password: string): Promise<void> {
+    if (import.meta.server) return;
+
+    const auth = getAuth();
+    if (!auth) {
+      authError.value = "Firebase Auth no está inicializado.";
+      return;
+    }
+
+    isLoading.value = true;
+    authError.value = null;
+
+    try {
+      const result = await signInWithEmailAndPassword(auth, email, password);
+      user.value = await serializeUser(result.user);
+    } catch (err: unknown) {
+      const error = err as { code?: string; message?: string };
+      authError.value = mapAuthError(error.code);
+      console.error("[useAuth] loginWithEmail error:", error);
+    } finally {
+      isLoading.value = false;
+    }
+  }
+
+  /**
+   * Registra un nuevo usuario con email y contraseña.
+   */
+  async function registerWithEmail(email: string, password: string): Promise<void> {
+    if (import.meta.server) return;
+
+    const auth = getAuth();
+    if (!auth) {
+      authError.value = "Firebase Auth no está inicializado.";
+      return;
+    }
+
+    isLoading.value = true;
+    authError.value = null;
+
+    try {
+      const result = await createUserWithEmailAndPassword(auth, email, password);
+      user.value = await serializeUser(result.user);
+    } catch (err: unknown) {
+      const error = err as { code?: string; message?: string };
+      authError.value = mapAuthError(error.code);
+      console.error("[useAuth] registerWithEmail error:", error);
+    } finally {
+      isLoading.value = false;
+    }
+  }
+
+  /**
+   * Envía un correo de restablecimiento de contraseña.
+   */
+  async function resetPassword(email: string): Promise<boolean> {
+    if (import.meta.server) return false;
+
+    const auth = getAuth();
+    if (!auth) {
+      authError.value = "Firebase Auth no está inicializado.";
+      return false;
+    }
+
+    isLoading.value = true;
+    authError.value = null;
+
+    try {
+      await sendPasswordResetEmail(auth, email);
+      return true;
+    } catch (err: unknown) {
+      const error = err as { code?: string; message?: string };
+      authError.value = mapAuthError(error.code);
+      console.error("[useAuth] resetPassword error:", error);
+      return false;
     } finally {
       isLoading.value = false;
     }
@@ -160,6 +269,9 @@ export const useAuth = () => {
     isLoggedIn,
     // Métodos
     loginWithGoogle,
+    loginWithEmail,
+    registerWithEmail,
+    resetPassword,
     logout,
     getIdToken,
     initAuthListener,

@@ -5,37 +5,43 @@
 
 import { initializeApp, getApps, getApp, type FirebaseApp } from "firebase/app";
 import { getAuth, type Auth } from "firebase/auth";
-import { getFirestore, type Firestore } from "firebase/firestore";
+import { getFirestore, initializeFirestore, type Firestore } from "firebase/firestore";
+import { getStorage, type FirebaseStorage } from "firebase/storage";
 
-export default defineNuxtPlugin(() => {
-  const config = useRuntimeConfig();
+export default defineNuxtPlugin({
+  name: "firebase",
+  setup() {
+    const config = useRuntimeConfig();
 
-  // ── Configuración del Firebase Client SDK ─────────────────────────────────
-  const firebaseConfig = {
-    apiKey: config.public.firebaseApiKey,
-    authDomain: config.public.firebaseAuthDomain,
-    projectId: config.public.firebaseProjectId,
-    storageBucket: config.public.firebaseStorageBucket,
-    messagingSenderId: config.public.firebaseMessagingSenderId,
-    appId: config.public.firebaseAppId,
-  };
+    // ── Configuración del Firebase Client SDK ─────────────────────────────────
+    const firebaseConfig = {
+      apiKey: config.public.firebaseApiKey,
+      authDomain: config.public.firebaseAuthDomain,
+      projectId: config.public.firebaseProjectId,
+      storageBucket: config.public.firebaseStorageBucket,
+      messagingSenderId: config.public.firebaseMessagingSenderId,
+      appId: config.public.firebaseAppId,
+    };
 
-  // Evita re-inicializar Firebase en Hot Module Replacement (HMR)
-  const app: FirebaseApp = getApps().length
-    ? getApp()
-    : initializeApp(firebaseConfig);
+    // Evita re-inicializar Firebase en Hot Module Replacement (HMR)
+    const app: FirebaseApp = getApps().length
+      ? getApp()
+      : initializeApp(firebaseConfig);
 
-  // ── Servicios de Firebase ─────────────────────────────────────────────────
-  const auth: Auth = getAuth(app);
-  const firestore: Firestore = getFirestore(app);
+    // ── Servicios de Firebase ─────────────────────────────────────────────────
+    const auth: Auth = getAuth(app);
+    const firestore: Firestore = initializeFirestore(app, {}, "clow1");
+    const storage: FirebaseStorage = getStorage(app);
 
-  // ── Exponer instancias en el contexto de Nuxt ─────────────────────────────
-  // Acceso: const { $firebaseAuth, $firestore } = useNuxtApp()
-  return {
-    provide: {
-      firebaseApp: app,
-      firebaseAuth: auth,
-      firestore: firestore,
-    },
-  };
+    // ── Exponer instancias en el contexto de Nuxt ─────────────────────────────
+    // Acceso: const { $firebaseAuth, $firestore, $firebaseStorage } = useNuxtApp()
+    return {
+      provide: {
+        firebaseApp: app,
+        firebaseAuth: auth,
+        firestore: firestore,
+        firebaseStorage: storage,
+      },
+    };
+  },
 });

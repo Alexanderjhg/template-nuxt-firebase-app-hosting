@@ -1,0 +1,325 @@
+{
+  "name": "Clowpen Agent - Automatizaciones",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 5
+            }
+          ]
+        }
+      },
+      "name": "Polling Cada 5 min",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.1,
+      "position": [200, 300]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{$env.CLOWPEN_BASE_URL}}/api/agents/automations/pending",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "name": "Obtener Pendientes",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [440, 300],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "CLOWPEN_AGENT_TOKEN_ID",
+          "name": "Clowpen Agent Token"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "condition-count",
+              "leftValue": "={{$json.count}}",
+              "rightValue": 0,
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "name": "Hay Pendientes?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [660, 300]
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "pending",
+        "options": {}
+      },
+      "name": "Separar Automatizaciones",
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [880, 240]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "condition-freq",
+              "leftValue": "={{$json.schedule.frequency}}",
+              "rightValue": "once",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "name": "Es Unica o Recurrente?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1100, 240]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Ejecución ÚNICA: procesar la tarea y generar resultado\nconst item = $input.item.json;\n\n// Aquí va tu lógica personalizada según la descripción.\n// Puedes usar sub-workflows, APIs externas, scraping, etc.\nconst description = item.description || item.title || 'Tarea sin descripción';\nconst title = item.title || 'Automatización';\n\n// Ejemplo: simplemente confirmar la ejecución.\n// En producción, aquí conectarías con APIs externas, \n// enviarías correos, consultarías bases de datos, etc.\nlet result = `✅ Tarea completada: ${description}`;\nlet status = 'success';\n\ntry {\n  // ── Tu lógica aquí ──\n  // Ejemplo: si la descripción menciona \"noticias\", podrías\n  // llamar a una API de noticias y formatear el resultado.\n  \n  if (description.toLowerCase().includes('noticias')) {\n    result = `📰 Resumen de noticias del día:\\n\\n`\n      + `• Tecnología: Las principales novedades del sector tech...\\n`\n      + `• Negocios: Mercados cierran en positivo...\\n`\n      + `• Deportes: Resultados de la jornada...\\n\\n`\n      + `(Este es un ejemplo — conecta tu fuente de noticias real)`;\n  } else if (description.toLowerCase().includes('clima') || description.toLowerCase().includes('weather')) {\n    result = `🌤️ Reporte del clima:\\n\\nTemperatura: 22°C\\nHumedad: 65%\\nCondición: Parcialmente nublado\\n\\n(Conecta la API de clima real)`;\n  } else if (description.toLowerCase().includes('correo') || description.toLowerCase().includes('email')) {\n    result = `📧 Revisión de correos:\\n\\n• 3 correos nuevos\\n• 1 urgente de Recursos Humanos\\n• 2 newsletters\\n\\n(Conecta tu API de correos)`;\n  } else {\n    result = `✅ Ejecutado: ${description}\\n\\nLa automatización se ejecutó correctamente.`;\n  }\n} catch (error) {\n  status = 'failed';\n  result = `❌ Error al ejecutar: ${error.message}`;\n}\n\nreturn {\n  json: {\n    automationId: item.id,\n    status,\n    result,\n    title,\n    description,\n    logs: {\n      executedAt: new Date().toISOString(),\n      type: 'once'\n    }\n  }\n};"
+      },
+      "name": "Ejecutar Tarea Unica",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1340, 180]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Ejecución RECURRENTE: procesar la tarea periódica\nconst item = $input.item.json;\n\nconst description = item.description || item.title || 'Tarea sin descripción';\nconst title = item.title || 'Automatización';\nconst frequency = item.schedule?.frequency || 'daily';\nconst runCount = (item.runCount || 0) + 1;\n\nlet result = '';\nlet status = 'success';\n\ntry {\n  // ── Tu lógica recurrente aquí ──\n  // Cada frecuencia puede tener su propia lógica.\n  \n  if (description.toLowerCase().includes('noticias')) {\n    result = `📰 Noticias del día (ejecución #${runCount}):\\n\\n`\n      + `• IA: OpenAI lanza nuevo modelo...\\n`\n      + `• Tech: Apple presenta nuevos productos...\\n`\n      + `• Finanzas: Bitcoin supera los $100k...\\n\\n`\n      + `Próxima entrega: ${frequency === 'daily' ? 'mañana' : 'próxima semana'}`;\n  } else if (description.toLowerCase().includes('reporte') || description.toLowerCase().includes('informe')) {\n    result = `📊 Reporte automático #${runCount}:\\n\\n`\n      + `• Usuarios activos: 156\\n`\n      + `• Mensajes enviados: 1,234\\n`\n      + `• Tareas completadas: 42\\n\\n`\n      + `(Conecta tu base de datos para datos reales)`;\n  } else if (description.toLowerCase().includes('recordatorio') || description.toLowerCase().includes('recuerda')) {\n    result = `🔔 Recordatorio #${runCount}:\\n\\n${description}\\n\\nNo olvides completar esta tarea.`;\n  } else if (description.toLowerCase().includes('correo') || description.toLowerCase().includes('email')) {\n    result = `📧 Revisión de correos #${runCount}:\\n\\n`\n      + `• ${Math.floor(Math.random() * 10) + 1} correos nuevos\\n`\n      + `• ${Math.floor(Math.random() * 3)} urgentes\\n\\n`\n      + `(Conecta tu API de correos para datos reales)`;\n  } else {\n    result = `⚡ Ejecución #${runCount} completada:\\n${description}`;\n  }\n} catch (error) {\n  status = 'failed';\n  result = `❌ Error en ejecución #${runCount}: ${error.message}`;\n}\n\nreturn {\n  json: {\n    automationId: item.id,\n    status,\n    result,\n    title,\n    description,\n    logs: {\n      executedAt: new Date().toISOString(),\n      type: frequency,\n      runNumber: runCount\n    }\n  }\n};"
+      },
+      "name": "Ejecutar Tarea Recurrente",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1340, 340]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{$env.CLOWPEN_BASE_URL}}/api/agents/automations/complete",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ automationId: $json.automationId, status: $json.status, result: $json.result, logs: $json.logs }) }}"
+      },
+      "name": "Reportar Resultado a Clowpen",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [1580, 260],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "CLOWPEN_AGENT_TOKEN_ID",
+          "name": "Clowpen Agent Token"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "clowpen-agent-webhook",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "name": "Webhook Mensajes del Chat",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1.1,
+      "position": [200, 560]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Procesa mensajes que el usuario envía directamente al canal del agente.\n// El webhook recibe el payload completo de Clowpen con historial.\nconst body = $input.item.json.body || $input.item.json;\nconst event = body.event; // 'message.created' o 'task.forwarded'\nconst data = body.data || {};\n\nconst content = data.content || '';\nconst senderName = data.senderName || 'Usuario';\nconst channelId = data.channelId || '';\nconst history = data.conversationHistory || [];\n\n// Analizar el mensaje del usuario para decidir qué hacer\nlet responseMessage = '';\nlet actions = [];\n\nconst lowerContent = content.toLowerCase();\n\nif (lowerContent.includes('estado') || lowerContent.includes('status')) {\n  responseMessage = `📋 Estado actual del agente:\\n\\n`\n    + `• Agente: Activo y funcionando\\n`\n    + `• Automatizaciones monitoreadas: Polling cada 5 min\\n`\n    + `• Última verificación: ${new Date().toLocaleString('es-CO')}\\n\\n`\n    + `¿Necesitas algo más?`;\n} else if (lowerContent.includes('ayuda') || lowerContent.includes('help')) {\n  responseMessage = `🤖 Soy tu agente de automatizaciones. Puedo:\\n\\n`\n    + `• ⏰ Programar tareas recurrentes\\n`\n    + `• 📰 Enviar noticias diarias\\n`\n    + `• 🔔 Crear recordatorios\\n`\n    + `• 📊 Generar reportes periódicos\\n`\n    + `• 📧 Revisar correos automáticamente\\n\\n`\n    + `Escribe en cualquier canal algo como \"envíame noticias todos los días a las 8am\" y el observador me lo reenviará.`;\n  actions = [\n    { label: '📰 Noticias diarias', actionType: 'custom', payload: { response: 'Quiero recibir noticias diarias a las 8am' }, style: 'primary' },\n    { label: '📊 Reporte semanal', actionType: 'custom', payload: { response: 'Genera un reporte semanal los lunes' }, style: 'secondary' }\n  ];\n} else if (event === 'task.forwarded') {\n  const taskDesc = data.taskDescription || content;\n  responseMessage = `✅ Recibí la tarea reenviada:\\n\\n\"${taskDesc}\"\\n\\nProcesando... Te notificaré cuando esté lista.`;\n} else {\n  responseMessage = `Recibido: \"${content}\"\\n\\nEstoy procesando tu solicitud. Si necesitas ayuda, escribe \"ayuda\".`;\n}\n\nreturn {\n  json: {\n    message: responseMessage,\n    actions,\n    channelId,\n    senderName\n  }\n};"
+      },
+      "name": "Procesar Mensaje del Chat",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [440, 560]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{$env.CLOWPEN_BASE_URL}}/api/agents/notify",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ message: $json.message, actions: $json.actions || [] }) }}"
+      },
+      "name": "Responder al Chat",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [680, 560],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "CLOWPEN_AGENT_TOKEN_ID",
+          "name": "Clowpen Agent Token"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "name": "No Op (Sin Pendientes)",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [880, 400]
+    }
+  ],
+  "connections": {
+    "Polling Cada 5 min": {
+      "main": [
+        [
+          {
+            "node": "Obtener Pendientes",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Obtener Pendientes": {
+      "main": [
+        [
+          {
+            "node": "Hay Pendientes?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Hay Pendientes?": {
+      "main": [
+        [
+          {
+            "node": "Separar Automatizaciones",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "No Op (Sin Pendientes)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Separar Automatizaciones": {
+      "main": [
+        [
+          {
+            "node": "Es Unica o Recurrente?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Es Unica o Recurrente?": {
+      "main": [
+        [
+          {
+            "node": "Ejecutar Tarea Unica",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Ejecutar Tarea Recurrente",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ejecutar Tarea Unica": {
+      "main": [
+        [
+          {
+            "node": "Reportar Resultado a Clowpen",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ejecutar Tarea Recurrente": {
+      "main": [
+        [
+          {
+            "node": "Reportar Resultado a Clowpen",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook Mensajes del Chat": {
+      "main": [
+        [
+          {
+            "node": "Procesar Mensaje del Chat",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Procesar Mensaje del Chat": {
+      "main": [
+        [
+          {
+            "node": "Responder al Chat",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [
+    {
+      "name": "clowpen",
+      "createdAt": "2026-03-26T00:00:00.000Z",
+      "updatedAt": "2026-03-26T00:00:00.000Z"
+    }
+  ],
+  "pinData": {},
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "clowpen-automation-agent"
+  }
+}

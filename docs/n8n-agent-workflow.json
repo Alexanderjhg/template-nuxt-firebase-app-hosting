@@ -1,0 +1,226 @@
+{
+  "name": "Clowpen Agent - Gemini Assistant",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "clowpen-agent",
+        "responseMode": "onReceived",
+        "options": {
+          "rawBody": true
+        }
+      },
+      "id": "webhook-receive",
+      "name": "Webhook Recibe Mensaje",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [250, 300],
+      "webhookId": "clowpen-agent"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "condition-event",
+              "leftValue": "={{ $json.body.event }}",
+              "rightValue": "message.created",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "filter-event",
+      "name": "Es mensaje nuevo?",
+      "type": "n8n-nodes-base.filter",
+      "typeVersion": 2,
+      "position": [470, 300]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "assign-content",
+              "name": "userMessage",
+              "value": "={{ $json.body.data.content }}",
+              "type": "string"
+            },
+            {
+              "id": "assign-sender",
+              "name": "senderName",
+              "value": "={{ $json.body.data.senderName }}",
+              "type": "string"
+            },
+            {
+              "id": "assign-channelId",
+              "name": "channelId",
+              "value": "={{ $json.body.data.channelId }}",
+              "type": "string"
+            },
+            {
+              "id": "assign-workspaceId",
+              "name": "workspaceId",
+              "value": "={{ $json.body.workspaceId }}",
+              "type": "string"
+            },
+            {
+              "id": "assign-senderId",
+              "name": "senderId",
+              "value": "={{ $json.body.data.senderId }}",
+              "type": "string"
+            },
+            {
+              "id": "assign-history",
+              "name": "history",
+              "value": "={{ $json.body.data.conversationHistory ? JSON.stringify($json.body.data.conversationHistory) : ($json.body.data.sourceMessages ? JSON.stringify($json.body.data.sourceMessages) : '[]') }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "extract-data",
+      "name": "Extraer datos",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [690, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite-preview:generateContent",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpQueryAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"contents\": [\n    {\n      \"role\": \"user\",\n      \"parts\": [\n        {\n          \"text\": `Eres un asistente inteligente integrado en una app de chat empresarial llamada Clowpen. Un usuario te ha enviado un mensaje en el canal del agente.\\n\\nHistorial de la conversación:\\n${$json.history}\\n\\nUsuario: ${$json.senderName}\\nMensaje: ${$json.userMessage}\\n\\nAnaliza la intención del usuario y responde en JSON con esta estructura exacta (sin markdown, solo JSON puro):\\n{\\n  \"intent\": \"task|reminder|search|report|greeting|unknown\",\\n  \"response\": \"Tu respuesta amigable al usuario\",\\n  \"cardTitle\": \"Título corto de la acción (si aplica, sino null)\",\\n  \"actions\": [\\n    {\\n      \"label\": \"Texto del botón\",\\n      \"actionType\": \"custom\",\\n      \"payload\": { \"type\": \"la_intencion\" },\\n      \"style\": \"primary\"\\n    }\\n  ]\\n}\\n\\nEjemplos de intenciones:\\n- \"Crea una tarea para revisar el diseño\" → intent: task, action: Crear tarea\\n- \"Recuérdame a las 3pm la reunión\" → intent: reminder, action: Crear recordatorio\\n- \"Busca los mensajes sobre el presupuesto\" → intent: search, action: Buscar\\n- \"Dame el reporte de ventas\" → intent: report, action: Generar reporte\\n- \"Hola, qué puedes hacer?\" → intent: greeting, sin actions\\n\\nSiempre responde en español. Si la intención no es clara, intent=unknown y ofrece ayuda.`\n        }\n      ]\n    }\n  ],\n  \"generationConfig\": {\n    \"temperature\": 0.7,\n    \"maxOutputTokens\": 500,\n    \"responseMimeType\": \"application/json\"\n  }\n}",
+        "options": {}
+      },
+      "id": "gemini-call",
+      "name": "Gemini - Analizar intención",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [910, 300],
+      "credentials": {
+        "httpQueryAuth": {
+          "id": "GEMINI_CREDENTIAL_ID",
+          "name": "Gemini API Key"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Extraer la respuesta de Gemini\nconst geminiResponse = $input.first().json;\nconst text = geminiResponse.candidates?.[0]?.content?.parts?.[0]?.text ?? '{}';\nconst extractedData = $('Extraer datos').first().json;\n\nlet parsed;\ntry {\n  parsed = JSON.parse(text);\n} catch {\n  parsed = {\n    intent: 'unknown',\n    response: 'No pude procesar tu mensaje. ¿Podrías reformularlo?',\n    cardTitle: null,\n    actions: []\n  };\n}\n\n// Construir el payload para POST /api/agents/notify\nconst notifyPayload = {\n  message: parsed.response || 'Procesado correctamente.',\n  targetUserId: extractedData.senderId || null,\n};\n\n// Solo agregar card si hay título y acciones\nif (parsed.cardTitle && parsed.actions && parsed.actions.length > 0) {\n  notifyPayload.cardTitle = parsed.cardTitle;\n  notifyPayload.actions = parsed.actions.map(a => ({\n    label: a.label || 'Acción',\n    actionType: a.actionType || 'custom',\n    payload: a.payload || {},\n    style: a.style || 'primary'\n  }));\n}\n\n// Siempre agregar botón de dismiss si hay acciones\nif (notifyPayload.actions && notifyPayload.actions.length > 0) {\n  notifyPayload.actions.push({\n    label: 'Descartar',\n    actionType: 'dismiss',\n    payload: {},\n    style: 'secondary'\n  });\n}\n\nreturn [{\n  json: {\n    notifyPayload,\n    intent: parsed.intent,\n    channelId: extractedData.channelId\n  }\n}];"
+      },
+      "id": "parse-gemini",
+      "name": "Parsear respuesta Gemini",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1130, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://localhost:3000/api/agents/notify",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.notifyPayload) }}",
+        "options": {}
+      },
+      "id": "notify-clowpen",
+      "name": "Enviar respuesta a Clowpen",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1350, 300],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "CLOWPEN_AGENT_TOKEN_ID",
+          "name": "Clowpen Agent Token"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Webhook Recibe Mensaje": {
+      "main": [
+        [
+          {
+            "node": "Es mensaje nuevo?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Es mensaje nuevo?": {
+      "main": [
+        [
+          {
+            "node": "Extraer datos",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extraer datos": {
+      "main": [
+        [
+          {
+            "node": "Gemini - Analizar intención",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gemini - Analizar intención": {
+      "main": [
+        [
+          {
+            "node": "Parsear respuesta Gemini",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parsear respuesta Gemini": {
+      "main": [
+        [
+          {
+            "node": "Enviar respuesta a Clowpen",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [
+    {
+      "name": "clowpen",
+      "createdAt": "2026-03-24T00:00:00.000Z",
+      "updatedAt": "2026-03-24T00:00:00.000Z"
+    }
+  ],
+  "triggerCount": 1
+}

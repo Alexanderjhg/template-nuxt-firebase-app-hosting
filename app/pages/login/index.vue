@@ -35,7 +35,7 @@ const { isLoggedIn } = useAuth();
 // Redirección reactiva: si el estado cambia mientras el usuario está en /login
 watchEffect(() => {
   if (isLoggedIn.value) {
-    navigateTo("/dashboard");
+    navigateTo("/messages");
   }
 });
 </script>

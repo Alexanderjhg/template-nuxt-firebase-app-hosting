@@ -2,6 +2,8 @@
 // Configuración principal del SaaS Boilerplate (Nuxt 4 + Firebase App Hosting)
 // Las variables sensibles se leen desde Cloud Secret Manager vía apphosting.yaml
 
+import { resolve } from "path";
+
 export default defineNuxtConfig({
   compatibilityDate: "2025-07-15",
   // srcDir: "app/",
@@ -15,6 +17,15 @@ export default defineNuxtConfig({
   // ── Fix para errores de rutas en Windows ───────────────────────────────────
   experimental: {
     payloadExtraction: false,
+  },
+
+  // ── Alias Nitro: resuelve ~/server/* en archivos del servidor ───────────────
+  // En Nuxt 4, ~ apunta a app/ (srcDir), pero server/ está en la raíz.
+  // @ts-expect-error: nitro existe en runtime pero el tipo generado puede no incluirlo
+  nitro: {
+    alias: {
+      "~/server": resolve(__dirname, "server"),
+    },
   },
 
   // ── Componentes ────────────────────────────────────────────────────────────
@@ -37,7 +48,6 @@ export default defineNuxtConfig({
   // ── SSR: activado globalmente; login desactivado en cliente ────────────────
   ssr: true,
 
-  // @ts-expect-error: routeRules exists at runtime but causes ts errors in Nuxt 4 configs sometimes
   routeRules: {
     // Headers globales de seguridad para permitir popups de Firebase Auth
     "/**": {
@@ -47,8 +57,14 @@ export default defineNuxtConfig({
     },
     // Las páginas de autenticación se renderizan en el cliente
     "/login": { ssr: false },
-    // Todas las rutas del dashboard requieren cliente (estado Auth)
-    "/dashboard/**": { ssr: false },
+    // Todas las rutas de mensajes requieren cliente (estado Auth)
+    "/messages/**": { ssr: false },
+    // Chat: siempre cliente (Firestore onSnapshot, presencia, tiempo real)
+    "/chat/**": { ssr: false },
+    // Mensajes personales, contactos y perfil
+    "/messages/**": { ssr: false },
+    "/contacts/**": { ssr: false },
+    "/profile/**": { ssr: false },
   },
 
   // ── Variables de entorno ───────────────────────────────────────────────────
@@ -71,6 +87,16 @@ export default defineNuxtConfig({
     epaycoSecretKey: "",
     epaycoIsTest: "true",
 
+    // Google OAuth2 (Calendar API)
+    // →  NUXT_GOOGLE_CLIENT_ID / NUXT_GOOGLE_CLIENT_SECRET
+    googleClientId: "",
+    googleClientSecret: "",
+
+    // Agentes: cifrado de tokens y firma de webhooks
+    // →  NUXT_AGENT_TOKEN_ENCRYPTION_KEY / NUXT_WEBHOOK_SIGNING_KEY
+    agentTokenEncryptionKey: "",
+    webhookSigningKey: "",
+
     // ── Cliente (públicas: NUXT_PUBLIC_*) ────────────────────────────────────
     public: {
       // →  NUXT_PUBLIC_EPAYCO_PUBLIC_KEY
@@ -82,6 +108,8 @@ export default defineNuxtConfig({
       firebaseStorageBucket: "",
       firebaseMessagingSenderId: "",
       firebaseAppId: "",
+      // →  NUXT_PUBLIC_APP_URL
+      appUrl: "http://localhost:3000",
       // →  NUXT_PUBLIC_APP_ENV
       appEnv: "development",
     },

@@ -1,4 +1,21 @@
 {
-  "indexes": [],
+  "indexes": [
+    {
+      "collectionGroup": "automations",
+      "queryScope": "COLLECTION_GROUP",
+      "fields": [
+        { "fieldPath": "status", "order": "ASCENDING" },
+        { "fieldPath": "schedule.nextRunAt", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "globalAgents",
+      "queryScope": "COLLECTION_GROUP",
+      "fields": [
+        { "fieldPath": "tokenPrefix", "order": "ASCENDING" },
+        { "fieldPath": "isActive", "order": "ASCENDING" }
+      ]
+    }
+  ],
   "fieldOverrides": []
 }
